@@ -1,0 +1,118 @@
+#+TITLE: CacheWatch - A watchdog for monitoring Last Level Cache traffic
+#+AUTHOR: yaspr
+
+#+NAME: fig:logo
+#+ATTR_HTML: :width 400px
+[[./img/logo.png]]
+
+* Introduction
+
+  This document describes *CacheWatch*, a watchdog/daemon that runs in the background and collects
+  Last Level Cache hardware counters.  
+
+** Compilation
+
+  Check the source code for more details.
+  
+  #+BEGIN_SRC sh -n  
+  make
+  #+END_SRC
+
+** Testing
+
+  Check the makefile for more details.
+  
+  #+BEGIN_SRC sh -n
+  make test
+  #+END_SRC
+
+  The tests consist of running *cachewatch* using the four benchmarks decribed below 
+  on the same core (core 1). 
+  
+  - _Array reduction:_ 
+    
+  #+BEGIN_SRC c -n
+  double r = 0.0;
+  
+  for (unsigned long long i = 0; i < n; i++)
+    r += a[i];
+
+  return r;
+  #+END_SRC
+  
+  - _Dot product:_
+    
+  #+BEGIN_SRC c -n
+  double d = 0.0;
+
+  for (unsigned long long i = 0; i < n; i++)
+    d += a[i] * b[i];
+
+  return d;
+  #+END_SRC
+
+  - _GEMM :_
+    
+    - IJK version:
+      
+      #+BEGIN_SRC c -n
+      for (unsigned long long i = 0; i < n; i++)
+        for (unsigned long long j = 0; j < n; j++)
+	  for (unsigned long long k = 0; k < n; k++)
+	     c[i][j] += a[i][k] * b[k][j];
+      #+END_SRC
+
+    - IKJ version:
+      
+      #+BEGIN_SRC c -n
+      for (unsigned long long i = 0; i < n; i++)
+        for (unsigned long long j = 0; j < n; j++)
+	  {
+	    double _a_ = a[i][k];
+	    
+	    for (unsigned long long k = 0; k < n; k++)
+	      c[i][j] += _a_ * b[k][j];
+	  }
+      #+END_SRC
+      
+* Hands on
+** Starting the watchdog
+
+  #+BEGIN_SRC sh -n
+  ./cachewatch --start CORE_NUM
+  #+END_SRC
+  
+  If no core number is provided, the tool uses core 0 by default.
+  
+  The watchdog process creates a pid (*cachewatch.pid*) file in the calling directory. This pid file 
+  is used to retrieve the PID of the watchdog in order for the tool to signal the end of the collection. 
+  
+** Stopping the watchdog 
+   
+  #+BEGIN_SRC bash -n
+  ./cachewatch --stop  
+  #+END_SRC
+  
+  Once the watchdog receives the stop signal, it dumps the collected counter values into an output
+  file (*cachewatch.out*). If an output file already exists, it will be renamed (*cachewatch.out.old*).
+  
+* Hardware Counters
+  
+** Last Level Cache
+
+  CacheWatch uses the *=perf_event_open=* system call to set two Last Level Cache counters:
+  =PERF_COUNT_HW_CACHE_REFERENCES=, =PERF_COUNT_HW_CACHE_MISSES=.
+
+** L1 and other counters  
+
+   [Work In Progress]
+
+   _Add support for:_
+   
+   - Loads/Store/Prefetch 
+   
+   - L1
+   
+   - TLB
+
+   - NUMA
